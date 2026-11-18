@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臺中市北區全齡友善即時交通運輸看板</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --bg-grad-day: linear-gradient(135deg, #f0f4f8, #d9e2ec);
+            --card-bg-day: rgba(255, 255, 255, 0.9);
+            --text-main-day: #102a43;
+            --text-sub-day: #486581;
+            
+            --bg-grad-night: linear-gradient(135deg, #0f172a, #1e293b);
+            --card-bg-night: rgba(30, 41, 59, 0.85);
+            --text-main-night: #f8fafc;
+            --text-sub-night: #94a3b8;
+
+            --primary: #0284c7;
+            --accent: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body.day-mode { background: var(--bg-grad-day); color: var(--text-main-day); }
+        body.night-mode { background: var(--bg-grad-night); color: var(--text-main-night); }
+
+        body.large-text { font-size: 1.25rem; }
+        body.high-contrast { background: #000 !important; color: #ff0 !important; }
+        body.high-contrast .card { background: #111 !important; border: 3px solid #ff0 !important; color: #ff0 !important; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 頂部導航列 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg-day);
+            padding: 15px 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.2);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        body.night-mode header { background: var(--card-bg-night); border-color: rgba(255,255,255,0.05); }
+
+        .logo-area h1 { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+        .logo-area span { font-size: 0.9rem; opacity: 0.8; font-weight: normal; }
+
+        .clock-display {
+            font-family: monospace;
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: rgba(0,0,0,0.05);
+            padding: 5px 15px;
+            border-radius: 8px;
+        }
+        body.night-mode .clock-display { background: rgba(255,255,255,0.1); }
+
+        /* 控制按鈕列 */
+        .controls-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button, select {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.15);
+            background: white;
+            color: #333;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+        button:hover, select:hover { background: #f1f5f9; transform: translateY(-1px); }
+        body.night-mode button, body.night-mode select { background: #334155; color: #fff; border-color: rgba(255,255,255,0.1); }
+        body.night-mode button:hover { background: #475569; }
+
+        button.active { background: var(--primary); color: white; border-color: transparent; }
+
+        /* 主要資訊網格 */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .grid-layout { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg-day);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(8px);
+        }
+        body.night-mode .card { background: var(--card-bg-night); border-color: rgba(255,255,255,0.05); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid rgba(0,0,0,0.05);
+            padding-bottom: 10px;
+        }
+        body.night-mode .card-header { border-bottom-color: rgba(255,255,255,0.05); }
+
+        .card-title { font-size: 1.2rem; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+
+        /* 標籤頁面 */
+        .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .tab-btn { padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; }
+
+        /* 列表項目 */
+        .list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .transport-item {
+            background: rgba(0,0,0,0.02);
+            padding: 12px 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid var(--primary);
+            transition: transform 0.2s;
+        }
+        body.night-mode .transport-item { background: rgba(255,255,255,0.03); }
+        .transport-item:hover { transform: translateX(3px); }
+
+        .route-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .time-badge {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        .time-badge.soon { color: var(--danger); animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        /* 跑馬燈與提示橫幅 */
+        .banner {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);
+        }
+        .banner.hidden { display: none; }
+
+        /* 彈跳視窗 Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: auto; }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        body.night-mode .modal-content { background: #1e293b; color: #fff; }
+
+        #qrcode-box {
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            width: fit-content;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="day-mode">
+    <div class="container">
+        <!-- 頂部導航列 -->
+        <header>
+            <div class="logo-area">
+                <h1>🚍 臺中市北區智慧交通看板</h1>
+                <span>全齡友善與無障礙動態系統</span>
+            </div>
+            <div class="clock-display" id="live-clock">00:00:00</div>
+            <div class="controls-bar">
+                <button id="btn-audio" onclick="toggleAudioSpeech()" title="語音播報">🔊 語音播報</button>
+                <button id="btn-font" onclick="toggleLargeFont()" title="放大字體">🔍 大字體</button>
+                <button id="btn-contrast" onclick="toggleHighContrast()" title="高對比模式">👁️ 高對比</button>
+                <button id="btn-theme" onclick="toggleTheme()" title="切換日夜模式">☀️ 日間</button>
+                <button onclick="openQrModal()" class="active" title="手機掃碼帶著走">📱 手機帶著走</button>
+            </div>
+        </header>
+
+        <!-- 夜間安全提醒橫幅 -->
+        <div id="night-safety-banner" class="banner hidden">
+            <span>🌙 夜間安心防護啟動：北區主要候車亭已開啟夜間高亮度照明與保全連動，請多加利用無障礙低地板班次。</span>
+        </div>
+
+        <!-- 內容網格 -->
+        <div class="grid-layout">
+            <!-- 左側：公車與站牌動態 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🚏 北區重點公車動態</div>
+                    <select id="bus-station-select" onchange="renderBusData()">
+                        <option value="zhongyou">中友百貨 / 一中商圈</option>
+                        <option value="cmu">中國醫藥大學</option>
+                        <option value="chongde">文心崇德路口</option>
+                    </select>
+                </div>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="setBusFilter('all', this)">全部路線</button>
+                    <button class="tab-btn" onclick="setBusFilter('accessible', this)">♿ 僅看低地板</button>
+                    <button class="tab-btn" onclick="setBusFilter('maternal', this)">🤱 婦幼安心車</button>
+                </div>
+                <div id="bus-list" class="list-container">
+                    <!-- 動態載入公車 -->
+                </div>
+            </div>
+
+            <!-- 右側：捷運與臺鐵 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🚇 捷運綠線 & 臺鐵即時動態</div>
+                    <select id="rail-station-select" onchange="renderRailData()">
+                        <option value="g6">捷運文心崇德站 (G6)</option>
+                        <option value="taichung_station">臺鐵 臺中車站</option>
+                        <option value="taiyuan_station">臺鐵 太原車站</option>
+                    </select>
+                </div>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="setRailDirection('up', this)">往北屯總站 / 北上</button>
+                    <button class="tab-btn" onclick="setRailDirection('down', this)">往高鐵台中站 / 南下</button>
+                </div>
+                <div id="rail-list" class="list-container">
+                    <!-- 動態載入軌道 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部：YouBike 2.0 站點即時車位 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">🚲 臺中市北區 YouBike 2.0 即時車位</div>
+                <span style="font-size: 0.85rem; opacity: 0.8;">每 30 秒自動更新</span>
+            </div>
+            <div id="youbike-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;">
+                <!-- 動態載入 YouBike -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 手機帶著走 QR Code 彈跳視窗 -->
+    <div id="qr-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>📱 手機掃碼帶著走</h3>
+            <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 5px;">用手機相機掃描下方 QR Code，立即在手機同步檢視此看板！</p>
+            <div id="qrcode-box"></div>
+            <p id="current-url-text" style="font-size: 0.8rem; word-break: break-all; opacity: 0.7; margin-bottom: 15px;"></p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="copyCurrentUrl()">📋 複製網址</button>
+                <button onclick="closeQrModal()" class="active">關閉視窗</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 時鐘與日期更新
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('live-clock').innerText = `${h}:${m}:${s}`;
+
+            // 夜間橫幅判斷 (21:00 ~ 06:00)
+            const hour = now.getHours();
+            const banner = document.getElementById('night-safety-banner');
+            if (hour >= 21 || hour < 6) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 視覺與無障礙切換控制
+        let isNight = false;
+        let isLarge = false;
+        let isContrast = false;
+
+        function toggleTheme() {
+            isNight = !isNight;
+            const body = document.body;
+            const btn = document.getElementById('btn-theme');
+            if (isNight) {
+                body.className = 'night-mode';
+                if (isLarge) body.classList.add('large-text');
+                if (isContrast) body.classList.add('high-contrast');
+                btn.innerText = '🌙 夜間';
+            } else {
+                body.className = 'day-mode';
+                if (isLarge) body.classList.add('large-text');
+                if (isContrast) body.classList.add('high-contrast');
+                btn.innerText = '☀️ 日間';
+            }
+        }
+
+        function toggleLargeFont() {
+            isLarge = !isLarge;
+            document.body.classList.toggle('large-text', isLarge);
+            document.getElementById('btn-font').classList.toggle('active', isLarge);
+        }
+
+        function toggleHighContrast() {
+            isContrast = !isContrast;
+            document.body.classList.toggle('high-contrast', isContrast);
+            document.getElementById('btn-contrast').classList.toggle('active', isContrast);
+        }
+
+        // 模擬公車與軌道資料與渲染
+        let currentBusFilter = 'all';
+        function setBusFilter(filter, btn) {
+            currentBusFilter = filter;
+            document.querySelectorAll('.card:nth-child(1) .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderBusData();
+        }
+
+        function renderBusData() {
+            const list = document.getElementById('bus-list');
+            const station = document.getElementById('bus-station-select').value;
+            
+            // 模擬北區站牌資料
+            let buses = [
+                { route: '300', name: '靜宜大學 - 臺中車站', time: '2 分鐘', accessible: true, maternal: true },
+                { route: '303', name: '鰲峰山 - 臺中車站', time: '5 分鐘', accessible: true, maternal: false },
+                { route: '25', name: '臺中高工 - 僑光科技大學', time: '8 分鐘', accessible: false, maternal: true },
+                { route: '35', name: '僑光科技大學 - 臺中車站', time: '12 分鐘', accessible: true, maternal: true },
+                { route: '73', name: '建功國小 - 公共資訊圖書館', time: '15 分鐘', accessible: false, maternal: false }
+            ];
+
+            if (currentBusFilter === 'accessible') buses = buses.filter(b => b.accessible);
+            if (currentBusFilter === 'maternal') buses = buses.filter(b => b.maternal);
+
+            list.innerHTML = buses.map(b => `
+                <div class="transport-item">
+                    <div>
+                        <span class="route-badge">${b.route} 路</span>
+                        <div style="font-size: 0.85rem; opacity: 0.8; margin-top: 4px;">${b.name}</div>
+                        <div style="font-size: 0.75rem; color: var(--primary); margin-top: 2px;">
+                            ${b.accessible ? '♿ 低地板無障礙 ' : ''} ${b.maternal ? '🤱 婦幼安心車廂' : ''}
+                        </div>
+                    </div>
+                    <div class="time-badge ${parseInt(b.time) <= 3 ? 'soon' : ''}">${b.time}</div>
+                </div>
+            `).join('');
+        }
+        renderBusData();
+
+        let currentRailDir = 'up';
+        function setRailDirection(dir, btn) {
+            currentRailDir = dir;
+            document.querySelectorAll('.card:nth-child(2) .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderRailData();
+        }
+
+        function renderRailData() {
+            const list = document.getElementById('rail-list');
+            const station = document.getElementById('rail-station-select').value;
+
+            let rails = station === 'g6' ? [
+                { no: '列車 012', dest: currentRailDir === 'up' ? '往 北屯總站' : '往 高鐵台中站', time: '3 分鐘', status: '準點' },
+                { no: '列車 014', dest: currentRailDir === 'up' ? '往 北屯總站' : '往 高鐵台中站', time: '9 分鐘', status: '準點' }
+            ] : [
+                { no: '自強 112次', dest: currentRailDir === 'up' ? '往 臺北 / 基隆' : '往 高雄 / 屏東', time: '4 分鐘', status: '準點' },
+                { no: '區間 2134', dest: currentRailDir === 'up' ? '往 豐原 / 苗栗' : '往 彰化 / 潮州', time: '11 分鐘', status: '準點' }
+            ];
+
+            list.innerHTML = rails.map(r => `
+                <div class="transport-item" style="border-left-color: var(--accent);">
+                    <div>
+                        <span class="route-badge" style="background: var(--accent);">${r.no}</span>
+                        <div style="font-size: 0.85rem; opacity: 0.8; margin-top: 4px;">${r.dest}</div>
+                        <div style="font-size: 0.75rem; color: var(--accent);">✅ 電梯與無障礙設施正常</div>
+                    </div>
+                    <div class="time-badge">${r.time}</div>
+                </div>
+            `).join('');
+        }
+        renderRailData();
+
+        // 模擬 YouBike 2.0 站點
+        function renderYouBike() {
+            const list = document.getElementById('youbike-list');
+            const stations = [
+                { name: '中友百貨 (三民路側)', bikes: 5, spaces: 12 },
+                { name: '中國醫藥大學 (學士路)', bikes: 2, spaces: 18 },
+                { name: '臺中公園 (精武路入口)', bikes: 11, spaces: 4 },
+                { name: '中山堂 (學士路側)', bikes: 8, spaces: 10 }
+            ];
+
+            list.innerHTML = stations.map(s => `
+                <div style="background: rgba(0,0,0,0.02); padding: 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.05);">
+                    <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 6px;">🚲 ${s.name}</div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>可借車輛: <strong style="color: ${s.bikes <= 2 ? 'var(--danger)' : 'var(--accent)'}">${s.bikes} 輛</strong></span>
+                        <span>空位數: <strong>${s.spaces} 個</strong></span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        renderYouBike();
+        setInterval(renderYouBike, 30000);
+
+        // 語音播報功能 (Web Speech API)
+        let isSpeaking = false;
+        function toggleAudioSpeech() {
+            const btn = document.getElementById('btn-audio');
+            if (!('speechSynthesis' in window)) {
+                alert('您的瀏覽器不支援語音播報功能');
+                return;
+            }
+
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                isSpeaking = false;
+                btn.classList.remove('active');
+                btn.innerText = '🔊 語音播報';
+                return;
+            }
+
+            const text = "臺中市北區即時交通播報：目前中友百貨站牌，300路公車還有2分鐘進站，為低地板無障礙公車。捷運文心崇德站列車即將進站。";
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-TW';
+            utterance.rate = 1.0;
+            
+            utterance.onend = () => {
+                isSpeaking = false;
+                btn.classList.remove('active');
+                btn.innerText = '🔊 語音播報';
+            };
+
+            window.speechSynthesis.speak(utterance);
+            isSpeaking = true;
+            btn.classList.add('active');
+            btn.innerText = '⏹️ 停止播報';
+        }
+
+        // QR Code 彈跳視窗與生成
+        let qrInstance = null;
+        function openQrModal() {
+            const modal = document.getElementById('qr-modal');
+            modal.classList.add('show');
+            
+            const urlBox = document.getElementById('qrcode-box');
+            urlBox.innerHTML = ''; // 清空舊的
+            
+            let targetUrl = window.location.href;
+            if (targetUrl.startsWith('file://') || targetUrl.includes('blob:')) {
+                targetUrl = prompt('目前為本機或預覽環境，請輸入您發布後的 GitHub Pages 公開網址 (例如 https://您的帳號.github.io/專案名稱/)：', 'https://');
+                if (!targetUrl) targetUrl = 'https://github.com';
+            }
+
+            document.getElementById('current-url-text').innerText = targetUrl;
+
+            qrInstance = new QRCode(urlBox, {
+                text: targetUrl,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function closeQrModal() {
+            document.getElementById('qr-modal').classList.remove('show');
+        }
+
+        function copyCurrentUrl() {
+            const url = document.getElementById('current-url-text').innerText;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('網址已成功複製到剪貼簿！');
+            });
+        }
+    </script>
+</body>
+</html>
